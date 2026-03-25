@@ -46,7 +46,8 @@ export default async function OrdersPage() {
                 <th className="px-6 py-3">Email</th>
                 <th className="px-6 py-3">Date</th>
                 <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Total</th>
+                <th className="px-6 py-3 text-right">Total</th>
+                <th className="px-6 py-3">GST No.</th>
                 <th className="px-6 py-3">Transaction ID</th>
                 <th className="px-6 py-3 w-28">Actions</th>
               </tr>
@@ -66,6 +67,8 @@ export default async function OrdersPage() {
                       subtotal: order.subtotal,
                       shippingCharges: order.shippingCharges,
                       transactionId: order.transactionId,
+                      gstno: order.shippingAddress?.gstno || order.gstno,
+                      invoicePdf: order.shippingAddress?.invoicePdf || order.invoicePdf,
                       paymentMethod: order.paymentMethod,
                       paymentStatus: order.paymentStatus,
                       items: order.items ? JSON.parse(JSON.stringify(order.items)) : [],

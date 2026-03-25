@@ -35,20 +35,24 @@ function TagEditor({
     setInput("");
   };
   return (
-    <div>
-      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">{label}</p>
-      <div className="flex flex-wrap gap-1 mb-1.5">
+    <div className="flex flex-col gap-1">
+      <p className="text-[10px] font-black uppercase tracking-tight text-slate-400 mb-0.5">{label}</p>
+      <div className="flex flex-wrap gap-1 empty:hidden">
         {values.map((v) => (
-          <span key={v} className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[10px] font-black">
+          <span key={v} className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[10px] font-black">
             {v}
-            <button type="button" onClick={() => onChange(values.filter((x) => x !== v))}><X className="h-2.5 w-2.5" /></button>
+            <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} className="hover:text-red-500 transition-colors">
+              <X className="h-2.5 w-2.5" />
+            </button>
           </span>
         ))}
       </div>
       <div className="flex gap-1">
         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          placeholder={placeholder} className="flex-1 p-1.5 text-[11px] bg-slate-50 border rounded-lg outline-none focus:bg-white focus:border-blue-400" />
-        <button type="button" onClick={add} className="px-2 bg-slate-900 text-white rounded-lg hover:bg-blue-600 transition-all"><Plus className="h-3 w-3" /></button>
+          placeholder={placeholder} className="min-w-0 flex-1 px-2.5 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-400" />
+        <button type="button" onClick={add} className="px-2 bg-slate-900 text-white rounded-lg hover:bg-blue-600 transition-all flex items-center justify-center">
+          <Plus className="h-3 w-3" />
+        </button>
       </div>
     </div>
   );
@@ -111,7 +115,12 @@ export function AddProduct({ categories }: AddProductProps) {
         setIsOpen(false);
         setForm(blankForm());
         startTransition(() => router.refresh());
+      } else {
+        alert("Error: " + (data.error || "Failed to save product"));
       }
+    } catch (err) {
+      console.error(err);
+      alert("An unexpected error occurred.");
     } finally {
       setSaving(false);
     }
@@ -129,36 +138,36 @@ export function AddProduct({ categories }: AddProductProps) {
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
-          <div className="w-full max-w-5xl bg-white sm:rounded-3xl rounded-2xl shadow-2xl border border-slate-200 my-2 sm:my-8 overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="w-full max-w-6xl bg-white sm:rounded-3xl rounded-2xl shadow-2xl border border-slate-200 my-2 sm:my-4 overflow-hidden animate-in fade-in zoom-in duration-200">
 
             {/* Header */}
-            <div className="p-6 border-b flex items-center justify-between bg-white sticky top-0 z-10">
+            <div className="px-6 py-4 border-b flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 rounded-xl"><Box className="h-5 w-5 text-blue-600" /></div>
-                <h3 className="text-xl font-black text-slate-900">Add New Product</h3>
+                <div className="p-2 bg-blue-50 rounded-lg"><Box className="h-4 w-4 text-blue-600" /></div>
+                <h3 className="text-lg font-black text-slate-900 tracking-tight">Add New Product</h3>
               </div>
-              <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X className="h-5 w-5" /></button>
+              <button onClick={() => setIsOpen(false)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><X className="h-5 w-5" /></button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[calc(100vh-120px)]">
+              <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
 
                 {/* ── LEFT: Core Info ── */}
-                <div className="lg:col-span-4 p-7 space-y-5">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500">General Info</p>
+                <div className="lg:col-span-4 p-5 space-y-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500 border-b pb-1">General Info</p>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block">Product Name *</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Product Name *</label>
                     <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      placeholder="e.g. Stainless Steel Hex Bolt"
-                      className="w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white shadow-sm" />
+                      placeholder="e.g. Hex Bolt"
+                      className="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white" />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block">Category *</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Category *</label>
                     <div className="relative">
                       <select required value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                        className="w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white shadow-sm appearance-none pr-10">
+                        className="w-full border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white appearance-none pr-10">
                         <option value="">Select Category</option>
                         {categories.map((c) => <option key={c._id} value={c._id}>{c.label}</option>)}
                       </select>
@@ -166,16 +175,16 @@ export function AddProduct({ categories }: AddProductProps) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block">Base Price (₹) *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Base Price (₹) *</label>
                       <input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                        className="w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white shadow-sm" />
+                        className="w-full border rounded-xl px-3 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white shadow-sm" />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block">Unit</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Unit</label>
                       <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="100 pcs"
-                        className="w-full border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white shadow-sm" />
+                        className="w-full border rounded-xl px-3 py-2 text-sm font-bold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 bg-white shadow-sm" />
                     </div>
                   </div>
 
@@ -208,12 +217,12 @@ export function AddProduct({ categories }: AddProductProps) {
 
                   {/* Flags */}
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1.5 block">Flags</label>
-                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border">
+                    <label className="text-[10px] font-black text-slate-500 uppercase mb-1 block">Flags</label>
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 rounded-lg border">
                       {(["inStock", "newArrival", "bestSeller", "onSale"] as const).map((f) => (
                         <button key={f} type="button" onClick={() => setForm({ ...form, [f]: !form[f] })}
-                          className={`px-2.5 py-1 rounded-lg text-[9px] font-black border transition-all ${form[f] ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm" : "bg-white border-slate-200 text-slate-300"}`}>
-                          {f === "inStock" ? "IN STOCK" : f === "newArrival" ? "NEW" : f === "bestSeller" ? "BEST SELLER" : "ON SALE"}
+                          className={`px-2 py-0.5 rounded-md text-[9px] font-black border transition-all ${form[f] ? "bg-blue-50 border-blue-200 text-blue-600 shadow-sm" : "bg-white border-slate-200 text-slate-300"}`}>
+                          {f === "inStock" ? "IN STOCK" : f === "newArrival" ? "NEW" : f === "bestSeller" ? "BEST" : "SALE"}
                         </button>
                       ))}
                     </div>
@@ -221,7 +230,7 @@ export function AddProduct({ categories }: AddProductProps) {
                 </div>
 
                 {/* ── RIGHT: Variant Pricing ── */}
-                <div className="lg:col-span-8 p-7 space-y-5 bg-slate-50/30">
+                <div className="lg:col-span-8 p-5 space-y-4 bg-slate-50/30">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500">Pricing Configuration</p>
@@ -240,8 +249,8 @@ export function AddProduct({ categories }: AddProductProps) {
                   {form.isVariantProduct ? (
                     <>
                       {/* Option builders */}
-                      <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-sm grid grid-cols-2 md:grid-cols-4 gap-5">
-                        <TagEditor label="Diameters (DIA)" placeholder="e.g. 6" values={diameters} onChange={(v) => setVO("diameters", v)} />
+                      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <TagEditor label="Diameters (DIA, optional)" placeholder="e.g. 6" values={diameters} onChange={(v) => setVO("diameters", v)} />
                         <TagEditor label="Lengths (LEN)" placeholder="e.g. 10" values={lengths} onChange={(v) => setVO("lengths", v)} />
                         <TagEditor label="Material Grades" placeholder="e.g. 304" values={materials} onChange={(v) => setVO("materials", v)} />
                         <TagEditor label="Sizes (optional)" placeholder="e.g. M6" values={sizes} onChange={(v) => setVO("sizes", v)} />
@@ -256,48 +265,48 @@ export function AddProduct({ categories }: AddProductProps) {
                             <Plus className="h-3 w-3" /> ADD ROW
                           </button>
                         </div>
-                        <div className="bg-white rounded-3xl border overflow-hidden shadow-sm">
-                          <div className="overflow-x-auto">
+                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                          <div className="overflow-x-auto max-h-[300px]">
                             <table className="w-full text-left text-[11px]">
                               <thead className="bg-slate-50 border-b text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                 <tr>
-                                  {diameters.length > 0 && <th className="px-4 py-3">DIA</th>}
-                                  {lengths.length > 0   && <th className="px-4 py-3">LENGTH</th>}
-                                  {materials.length > 0 && <th className="px-4 py-3">GRADE</th>}
-                                  {sizes.length > 0     && <th className="px-4 py-3">SIZE</th>}
-                                  <th className="px-4 py-3 text-right">PRICE ₹</th>
-                                  <th className="px-4 py-3 w-8"></th>
+                                  {diameters.length > 0 && <th className="px-2 py-2">DIA</th>}
+                                  {lengths.length > 0   && <th className="px-2 py-2">LENGTH</th>}
+                                  {materials.length > 0 && <th className="px-2 py-2">GRADE</th>}
+                                  {sizes.length > 0     && <th className="px-2 py-2">SIZE</th>}
+                                  <th className="px-2 py-2 text-right">PRICE ₹</th>
+                                  <th className="px-2 py-2 w-8"></th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
                                 {form.pricingData.map((row, idx) => (
                                   <tr key={idx}>
-                                    {diameters.length > 0 && <td className="px-3 py-2">
-                                      <select value={row.diameter} onChange={(e) => updateRow(idx, "diameter", e.target.value)} className="w-full p-1 bg-slate-50 border rounded text-[11px] font-bold outline-none">
+                                    {diameters.length > 0 && <td className="px-2 py-1">
+                                      <select value={row.diameter} onChange={(e) => updateRow(idx, "diameter", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold outline-none">
                                         <option value="">—</option>
                                         {diameters.map((d) => <option key={d}>{d}</option>)}
                                       </select>
                                     </td>}
-                                    {lengths.length > 0 && <td className="px-3 py-2">
-                                      <select value={row.length} onChange={(e) => updateRow(idx, "length", e.target.value)} className="w-full p-1 bg-slate-50 border rounded text-[11px] font-bold outline-none">
+                                    {lengths.length > 0 && <td className="px-2 py-1">
+                                      <select value={row.length} onChange={(e) => updateRow(idx, "length", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold outline-none">
                                         <option value="">—</option>
                                         {lengths.map((l) => <option key={l}>{l}</option>)}
                                       </select>
                                     </td>}
-                                    {materials.length > 0 && <td className="px-3 py-2">
-                                      <select value={row.material} onChange={(e) => updateRow(idx, "material", e.target.value)} className="w-full p-1 bg-slate-50 border rounded text-[11px] font-bold outline-none">
+                                    {materials.length > 0 && <td className="px-2 py-1">
+                                      <select value={row.material} onChange={(e) => updateRow(idx, "material", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold outline-none">
                                         <option value="">—</option>
                                         {materials.map((m) => <option key={m}>{m}</option>)}
                                       </select>
                                     </td>}
-                                    {sizes.length > 0 && <td className="px-3 py-2">
-                                      <select value={row.size} onChange={(e) => updateRow(idx, "size", e.target.value)} className="w-full p-1 bg-slate-50 border rounded text-[11px] font-bold outline-none">
+                                    {sizes.length > 0 && <td className="px-2 py-1">
+                                      <select value={row.size} onChange={(e) => updateRow(idx, "size", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold outline-none">
                                         <option value="">—</option>
                                         {sizes.map((s) => <option key={s}>{s}</option>)}
                                       </select>
                                     </td>}
-                                    <td className="px-3 py-2">
-                                      <input type="number" value={row.price} onChange={(e) => updateRow(idx, "price", Number(e.target.value))} className="w-full p-1 text-right font-black border rounded bg-slate-50 outline-none focus:bg-white" />
+                                    <td className="px-2 py-1">
+                                      <input type="number" value={row.price} onChange={(e) => updateRow(idx, "price", Number(e.target.value))} className="w-full p-1 text-right font-black border border-slate-200 rounded bg-slate-50 outline-none focus:bg-white text-[11px]" />
                                     </td>
                                     <td className="px-3 py-2 text-center">
                                       <button type="button" onClick={() => removeRow(idx)} className="text-slate-300 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -316,10 +325,10 @@ export function AddProduct({ categories }: AddProductProps) {
                       </div>
                     </>
                   ) : (
-                    <div className="p-10 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-3">
-                      <Layers className="h-10 w-10 text-slate-200" />
-                      <p className="text-sm font-black text-slate-400">SIMPLE FIXED PRICE</p>
-                      <p className="text-[11px] text-slate-300 max-w-xs">This product will use the base price above. Enable variable pricing to define per-dimension pricing (e.g. DIA × LENGTH × GRADE).</p>
+                    <div className="p-8 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-2">
+                      <Layers className="h-8 w-8 text-slate-200" />
+                      <p className="text-xs font-black text-slate-400">SIMPLE FIXED PRICE</p>
+                      <p className="text-[10px] text-slate-300 max-w-xs">This product will use the base price above. Enable variable pricing to define per-dimension pricing (e.g. DIA × LENGTH × GRADE).</p>
                     </div>
                   )}
                 </div>
@@ -327,10 +336,10 @@ export function AddProduct({ categories }: AddProductProps) {
               </div>
 
               {/* Footer */}
-              <div className="p-6 border-t flex gap-4 items-center bg-white">
-                <button type="button" onClick={() => setIsOpen(false)} className="px-6 py-3 font-bold text-slate-400 hover:text-slate-600 text-sm">Discard</button>
+              <div className="px-6 py-4 border-t flex gap-4 items-center bg-white shrink-0">
+                <button type="button" onClick={() => setIsOpen(false)} className="px-5 py-2 font-bold text-slate-400 hover:text-slate-600 text-sm">Discard</button>
                 <button type="submit" disabled={saving}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-2xl shadow-xl shadow-blue-500/30 disabled:opacity-50 transition-all active:scale-95">
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-xl shadow-xl shadow-blue-500/30 disabled:opacity-50 transition-all active:scale-95">
                   {saving ? "Publishing…" : <><Save className="h-4 w-4" /> Publish Product</>}
                 </button>
               </div>

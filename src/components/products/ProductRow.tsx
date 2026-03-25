@@ -156,14 +156,22 @@ export function ProductRow({ product }: ProductRowProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`/api/products/${product._id}`, {
+      const res = await fetch(`/api/products/${product._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(edit),
       });
-      setIsEditing(false);
-      setInStock(edit.inStock);
-      startTransition(() => router.refresh());
+      const data = await res.json();
+      if (data.ok) {
+        setIsEditing(false);
+        setInStock(edit.inStock);
+        startTransition(() => router.refresh());
+      } else {
+        alert("Error: " + (data.error || "Failed to save product"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An unexpected error occurred.");
     } finally {
       setSaving(false);
     }
@@ -349,7 +357,7 @@ export function ProductRow({ product }: ProductRowProps) {
                     {/* Option builders (edit mode only) */}
                     {isEditing && (
                       <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-sm grid grid-cols-2 gap-5">
-                        <TagEditor label="Diameters (DIA)" values={edit.variantOptions.diameters} onChange={(v) => setVO("diameters", v)} />
+                        <TagEditor label="Diameters (DIA, optional)" values={edit.variantOptions.diameters} onChange={(v) => setVO("diameters", v)} />
                         <TagEditor label="Lengths (LEN)" values={edit.variantOptions.lengths} onChange={(v) => setVO("lengths", v)} />
                         <TagEditor label="Material Grades" values={edit.variantOptions.materials} onChange={(v) => setVO("materials", v)} />
                         <TagEditor label="Sizes (optional)" values={edit.variantOptions.sizes} onChange={(v) => setVO("sizes", v)} />
@@ -417,8 +425,13 @@ export function ProductRow({ product }: ProductRowProps) {
                                 ) : (
                                   <tr key={idx} className="hover:bg-slate-50/40">
                                     {rdDia && <td className="px-4 py-2.5 font-bold text-slate-700">{row.diameter || "—"}</td>}
-                                    {rdLen && <td className="px-4 py-2.5 text-slate-600">{row.length ? `${row.length} mm` : "—"}</td>}
-                                    {rdMat && <td className="px-4 py-2.5"><span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md font-black text-[10px] border border-blue-100">AISI {row.material}</span></td>}
+                                    {rdLen && <td className="px-4 py-2.5 text-slate-600">{row.length || "—"}</td>}
+                                    {rdMat && <td className="px-4 py-2.5">
+                                      {row.material 
+                                        ? <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md font-black text-[10px] border border-blue-100">AISI {row.material}</span>
+                                        : <span className="text-slate-300">—</span>
+                                      }
+                                    </td>}
                                     {rdSz  && <td className="px-4 py-2.5 text-slate-600">{row.size || "—"}</td>}
                                     <td className="px-4 py-2.5 text-right font-black text-slate-900">₹{Number(row.price || 0).toLocaleString("en-IN")}</td>
                                   </tr>

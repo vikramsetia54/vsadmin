@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, ChevronDown, ChevronUp, Package } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Package, Upload, FileText, Loader2 } from "lucide-react";
 
 const STATUS_OPTIONS = ["Processing", "Shipped", "Delivered", "Cancelled", "Pending"] as const;
 
@@ -30,6 +30,7 @@ interface ShippingAddress {
   postalCode?: string;
   country?: string;
   phone?: string;
+  gstno?: string;
 }
 
 interface OrderRowProps {
@@ -45,6 +46,8 @@ interface OrderRowProps {
     transactionId?: string;
     paymentMethod?: string;
     paymentStatus?: string;
+    gstno?: string;
+    invoicePdf?: string;
     items?: OrderItem[];
   };
 }
@@ -55,6 +58,8 @@ export function OrderRow({ order }: OrderRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleStatusChange = async (newStatus: string) => {
     setStatus(newStatus);
@@ -64,6 +69,68 @@ export function OrderRow({ order }: OrderRowProps) {
       body: JSON.stringify({ status: newStatus }),
     });
     startTransition(() => router.refresh());
+  };
+
+  const handleInvoiceUpdate = async (url: string) => {
+    await fetch(`/api/orders/${order._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoicePdf: url }),
+    });
+    startTransition(() => router.refresh());
+  };
+
+  const handlePaymentStatusChange = async (newStatus: string) => {
+    await fetch(`/api/orders/${order._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentStatus: newStatus }),
+    });
+    startTransition(() => router.refresh());
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!file.type.includes("pdf")) {
+      alert("Please upload only PDF files.");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/orders/${order._id}/invoice`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // The endpoint already updates the order, just refresh.
+        startTransition(() => router.refresh());
+      } else {
+        alert("Upload failed: " + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred during upload.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
   };
 
   const handleDelete = async () => {
@@ -102,8 +169,11 @@ export function OrderRow({ order }: OrderRowProps) {
             ))}
           </select>
         </td>
-        <td className="px-6 py-4 font-medium text-slate-900">
+        <td className="px-6 py-4 font-medium text-slate-900 text-right">
           ₹{Number(order.totalAmount ?? 0).toLocaleString("en-IN")}
+        </td>
+        <td className="px-6 py-4 font-mono text-xs text-slate-600">
+          {order.shippingAddress?.gstno ?? <span className="text-slate-300">N/A</span>}
         </td>
         <td className="px-6 py-4 font-mono text-xs text-slate-600">
           {order.transactionId ?? <span className="text-slate-300">—</span>}
@@ -209,11 +279,16 @@ export function OrderRow({ order }: OrderRowProps) {
                       <span className="text-slate-500">Method</span>
                       <span className="font-medium uppercase">{order.paymentMethod ?? "—"}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                       <span className="text-slate-500">Payment Status</span>
-                      <span className={`font-semibold ${order.paymentStatus === "Paid" ? "text-emerald-600" : "text-amber-600"}`}>
-                        {order.paymentStatus ?? "—"}
-                      </span>
+                      <select 
+                        value={order.paymentStatus || "Pending"}
+                        onChange={(e) => handlePaymentStatusChange(e.target.value)}
+                        className={`text-xs font-semibold rounded-full px-2 py-0.5 border outline-none cursor-pointer ${order.paymentStatus === "Paid" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-amber-50 text-amber-600 border-amber-200"}`}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Paid">Paid</option>
+                      </select>
                     </div>
                     {order.transactionId && (
                       <div className="flex justify-between">
@@ -222,6 +297,92 @@ export function OrderRow({ order }: OrderRowProps) {
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div>
+                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Invoice</h4>
+                   <div className="bg-white border border-slate-100 rounded-lg p-3 text-sm text-slate-700 space-y-3">
+                     {order.invoicePdf ? (
+                       <div className="flex items-center justify-between gap-3 p-2 bg-blue-50/50 rounded-xl border border-blue-100">
+                         <div className="flex items-center gap-2 flex-1 min-w-0">
+                           <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+                           <a href={order.invoicePdf} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate text-xs font-bold">
+                             View Current Invoice PDF
+                           </a>
+                         </div>
+                         <button 
+                           onClick={() => handleInvoiceUpdate("")}
+                           className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                           title="Remove invoice"
+                         >
+                           <Trash2 className="h-3.5 w-3.5" />
+                         </button>
+                       </div>
+                     ) : (
+                       <div 
+                         onDragOver={onDragOver}
+                         onDragLeave={onDragLeave}
+                         onDrop={onDrop}
+                         className={`
+                           relative group border-2 border-dashed rounded-xl p-4 transition-all duration-200 text-center
+                           ${isDragging ? "border-blue-500 bg-blue-50/50" : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100/50"}
+                           ${isUploading ? "opacity-50 pointer-events-none" : "cursor-pointer"}
+                         `}
+                         onClick={() => {
+                           const input = document.createElement("input");
+                           input.type = "file";
+                           input.accept = ".pdf";
+                           input.onchange = (e) => {
+                             const file = (e.target as HTMLInputElement).files?.[0];
+                             if (file) handleFileUpload(file);
+                           };
+                           input.click();
+                         }}
+                       >
+                         {isUploading ? (
+                           <div className="flex flex-col items-center gap-2">
+                             <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
+                             <p className="text-[10px] font-black text-blue-600">UPLOADING PDF...</p>
+                           </div>
+                         ) : (
+                           <div className="flex flex-col items-center gap-1.5 text-slate-400">
+                             <Upload className={`h-6 w-6 transition-transform duration-300 ${isDragging ? "-translate-y-1 block" : "block"}`} />
+                             <div className="space-y-0.5">
+                               <p className="text-[10px] font-black text-slate-600 uppercase tracking-tight">Drop invoice PDF here</p>
+                               <p className="text-[9px] text-slate-400 font-medium">or click to browse files</p>
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     )}
+
+                     <div className="flex flex-col gap-1.5">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1">Or paste invoice URL</p>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="https://..." 
+                            className="flex-1 bg-slate-50 border border-slate-100 text-xs rounded-lg p-2 outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400 placeholder:text-slate-300 transition-all"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleInvoiceUpdate((e.target as HTMLInputElement).value);
+                                (e.target as HTMLInputElement).value = "";
+                              }
+                            }}
+                          />
+                          <button 
+                            className="px-3 bg-slate-900 text-white text-[10px] font-black rounded-lg hover:bg-blue-600 transition-all shadow-sm active:scale-95"
+                            onClick={(e) => {
+                              const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                              handleInvoiceUpdate(input.value);
+                              input.value = "";
+                            }}
+                          >
+                            LINK
+                          </button>
+                        </div>
+                     </div>
+                   </div>
                 </div>
               </div>
 
