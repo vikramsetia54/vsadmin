@@ -35,7 +35,7 @@ export function CreateTestimonial() {
       if (data.ok) {
         setIsOpen(false);
         setFormData({ name: "", role: "", company: "", quote: "", rating: 5, image: "" });
-        window.location.reload();
+        startTransition(() => router.refresh());
       }
     } catch (error) {
       console.error("Failed to add testimonial:", error);

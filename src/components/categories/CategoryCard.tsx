@@ -27,7 +27,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
     if (!confirm(`Delete category "${label}"? This cannot be undone.`)) return;
     setDeleting(true);
     await fetch(`/api/categories/${category._id}`, { method: "DELETE" });
-    window.location.reload();
+    startTransition(() => router.refresh());
   };
 
   const handleSave = async () => {
@@ -39,7 +39,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
     });
     setSaving(false);
     setEditing(false);
-    window.location.reload();
+    startTransition(() => router.refresh());
   };
 
   if (deleting) return null;
