@@ -154,7 +154,7 @@ export function OrderRow({ order }: OrderRowProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const handleInvoiceUpdate = async (url: string) => {
@@ -163,7 +163,7 @@ export function OrderRow({ order }: OrderRowProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ invoicePdf: url }),
     });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const handlePaymentStatusChange = async (newStatus: string) => {
@@ -172,7 +172,7 @@ export function OrderRow({ order }: OrderRowProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentStatus: newStatus }),
     });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const handleFileUpload = async (file: File) => {
@@ -190,7 +190,7 @@ export function OrderRow({ order }: OrderRowProps) {
       });
       const data = await res.json();
       if (data.ok) {
-        startTransition(() => router.refresh());
+        window.location.reload();
       } else {
         alert("Upload failed: " + data.error);
       }
@@ -215,7 +215,7 @@ export function OrderRow({ order }: OrderRowProps) {
     if (!confirm("Delete this order? This cannot be undone.")) return;
     setDeleting(true);
     await fetch(`/api/orders/${order._id}`, { method: "DELETE" });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   return (

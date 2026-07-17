@@ -42,7 +42,7 @@ export function TestimonialRow({ testimonial }: { testimonial: TestimonialType }
     if (!confirm("Are you sure you want to delete this testimonial?")) return;
     setIsDeleting(true);
     await fetch(`/api/testimonials/${testimonial._id}`, { method: "DELETE" });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const handleSave = async () => {
@@ -56,7 +56,7 @@ export function TestimonialRow({ testimonial }: { testimonial: TestimonialType }
       const data = await res.json();
       if (data.ok) {
         setIsEditing(false);
-        startTransition(() => router.refresh());
+        window.location.reload();
       } else {
         alert("Failed to save.");
       }

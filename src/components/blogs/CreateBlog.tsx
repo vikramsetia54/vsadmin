@@ -41,7 +41,7 @@ export function CreateBlog() {
             author: "Admin",
             readTime: "5 min read",
         });
-        startTransition(() => router.refresh());
+        window.location.reload();
       }
     } catch (error) {
       console.error("Failed to add blog post:", error);

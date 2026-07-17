@@ -53,7 +53,7 @@ export function BlogRow({ blog }: BlogRowProps) {
     if (!confirm(`Delete "${blog.title}"? This cannot be undone.`)) return;
     setDeleting(true);
     await fetch(`/api/blogs/${blog._id}`, { method: "DELETE" });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const handleSave = async () => {
@@ -65,7 +65,7 @@ export function BlogRow({ blog }: BlogRowProps) {
         body: JSON.stringify(editData),
       });
       closeModal();
-      startTransition(() => router.refresh());
+      window.location.reload();
     } catch (error) {
       console.error("Failed to save blog:", error);
     } finally {

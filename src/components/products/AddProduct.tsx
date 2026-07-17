@@ -137,7 +137,7 @@ export function AddProduct({ categories }: AddProductProps) {
       if (data.ok) {
         setIsOpen(false);
         setForm(blankForm());
-        startTransition(() => router.refresh());
+        window.location.reload();
       } else {
         alert("Error: " + (data.error || "Failed to save product"));
       }

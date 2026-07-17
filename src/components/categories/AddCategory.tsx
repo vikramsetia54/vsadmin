@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Plus, X, Save } from "lucide-react";
 
 export function AddCategory() {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -34,7 +31,7 @@ export function AddCategory() {
       if (data.ok) {
         setIsOpen(false);
         setFormData({ label: "", name: "", description: "" });
-        startTransition(() => router.refresh());
+        window.location.reload();
       } else {
         alert("Error: " + (data.error || "Failed to create category"));
       }

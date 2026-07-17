@@ -176,7 +176,7 @@ export function ProductRow({ product }: ProductRowProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ inStock: next }),
     });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const handleSave = async () => {
@@ -191,7 +191,7 @@ export function ProductRow({ product }: ProductRowProps) {
       if (data.ok) {
         setInStock(edit.inStock);
         closeModal();
-        startTransition(() => router.refresh());
+        window.location.reload();
       } else {
         alert("Error: " + (data.error || "Failed to save product"));
       }
@@ -206,7 +206,7 @@ export function ProductRow({ product }: ProductRowProps) {
   const handleDelete = async () => {
     if (!confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
     await fetch(`/api/products/${product._id}`, { method: "DELETE" });
-    startTransition(() => router.refresh());
+    window.location.reload();
   };
 
   const useDia = edit.variantOptions.diameters.length > 0;
