@@ -1,6 +1,9 @@
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 
+// Admin data changes constantly; never serve a statically cached shell.
+export const dynamic = "force-dynamic";
+
 export default function DashboardLayout({
   children,
 }: {
