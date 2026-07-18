@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Edit3, Trash2,
   CheckCircle2, XCircle, Save, X, Plus,
-  Layers, Box, Settings2, Info, Ruler,
+  Layers, Box, Settings2, Info, Ruler, Upload, Link, Loader2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -123,6 +123,11 @@ export function ProductRow({ product }: ProductRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imageMode, setImageMode] = useState<"upload" | "url">("upload");
+  const [imageUrl, setImageUrl] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [edit, setEdit] = useState({
     name: product.name || "",
@@ -133,10 +138,43 @@ export function ProductRow({ product }: ProductRowProps) {
     bestSeller: product.bestSeller || false,
     newArrival: product.newArrival || false,
     inStock: product.inStock ?? true,
+    images: product.images ?? [],
     isVariantProduct: product.isVariantProduct ?? false,
     variantOptions: product.variantOptions ?? { diameters: [], lengths: [], materials: [], sizes: [] },
     pricingData: product.pricingData ?? [],
   });
+
+  const uploadFiles = async (files: FileList | File[]) => {
+    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!arr.length) return;
+    setUploadingCount((n) => n + arr.length);
+    await Promise.all(
+      arr.map(async (file) => {
+        try {
+          const fd = new FormData();
+          fd.append("file", file);
+          const res = await fetch("/api/upload", { method: "POST", body: fd });
+          const data = await res.json();
+          if (data.ok) {
+            setEdit((p) => ({ ...p, images: [...p.images, data.url] }));
+          } else {
+            toast("Upload failed: " + data.error, "error");
+          }
+        } catch {
+          toast("Upload failed. Please try again.", "error");
+        } finally {
+          setUploadingCount((n) => n - 1);
+        }
+      })
+    );
+  };
+
+  const addImageUrl = () => {
+    if (imageUrl.trim()) {
+      setEdit((p) => ({ ...p, images: [...p.images, imageUrl.trim()] }));
+      setImageUrl("");
+    }
+  };
 
   const isOpen = expanded || isEditing;
 
@@ -370,19 +408,116 @@ export function ProductRow({ product }: ProductRowProps) {
                 <div className="xl:col-span-2 space-y-6">
                   {/* Images */}
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5">
-                      <Box className="h-3 w-3 text-slate-400" /> Photos
-                    </h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                        <Box className="h-3 w-3 text-slate-400" /> Photos
+                      </h4>
+                      {isEditing && (
+                        <div className="flex rounded-lg bg-slate-100 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setImageMode("upload")}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                              imageMode === "upload" ? "bg-white text-slate-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                            }`}
+                          >
+                            <Upload className="h-3 w-3" /> Upload
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setImageMode("url")}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                              imageMode === "url" ? "bg-white text-slate-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                            }`}
+                          >
+                            <Link className="h-3 w-3" /> URL
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {isEditing && imageMode === "upload" && (
+                      <>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          ref={imageInputRef}
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files?.length) uploadFiles(e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+                          }}
+                          onClick={() => uploadingCount === 0 && imageInputRef.current?.click()}
+                          className={`border-2 border-dashed rounded-xl p-3 text-center transition-all mb-2 ${
+                            isDragging
+                              ? "border-blue-400 bg-blue-50/50"
+                              : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
+                          } ${uploadingCount > 0 ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          {uploadingCount > 0 ? (
+                            <div className="flex items-center justify-center gap-2 py-1">
+                              <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                              <p className="text-xs text-blue-600 font-medium">Uploading {uploadingCount} image{uploadingCount > 1 ? "s" : ""}…</p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2 py-1">
+                              <Upload className="h-4 w-4 text-slate-400" />
+                              <p className="text-xs font-medium text-slate-600">Drop images here or click to browse</p>
+                              <span className="text-[11px] text-slate-400">PNG, JPG, WebP</span>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {isEditing && imageMode === "url" && (
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl(); } }}
+                          placeholder="Paste image URL then Enter"
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 bg-white transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={addImageUrl}
+                          className="px-3 bg-slate-900 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-2">
-                      {(product.images ?? []).map((src, i) => (
+                      {(isEditing ? edit.images : (product.images ?? [])).map((src, i) => (
                         <div
                           key={i}
-                          className="h-20 w-20 rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white hover:scale-105 transition-transform"
+                          className="relative group h-20 w-20 rounded-xl border border-slate-200 overflow-hidden shadow-sm bg-white"
                         >
                           <img src={src} className="h-full w-full object-cover" />
+                          {isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => setEdit((p) => ({ ...p, images: p.images.filter((_, j) => j !== i) }))}
+                              className="absolute inset-0 bg-red-500/75 text-white items-center justify-center hidden group-hover:flex text-xs font-semibold"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       ))}
-                      {(product.images ?? []).length === 0 && (
+                      {(isEditing ? edit.images : (product.images ?? [])).length === 0 && !isEditing && (
                         <div className="h-20 w-full rounded-xl border-2 border-dashed border-slate-200 text-slate-400 flex items-center justify-center text-xs">
                           No images uploaded
                         </div>
