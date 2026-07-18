@@ -24,12 +24,17 @@ export function AddCategory() {
 
     setSaving(true);
     try {
+      const slug = (formData.name || formData.label)
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "-");
       const res = await fetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          name: formData.name || formData.label, // Fallback if name not provided
+          name: formData.name || formData.label,
+          href: `/categories/${slug}`,
         }),
       });
       const data = await res.json();
