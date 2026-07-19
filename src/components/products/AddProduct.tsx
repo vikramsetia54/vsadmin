@@ -2,76 +2,20 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Save, Layers, Trash2, Box, ChevronDown, Upload, Link, Loader2 } from "lucide-react";
+import { Plus, X, Save, Layers, Box, ChevronDown, Upload, Link, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
+import { MetricEditor } from "./MetricEditor";
+import { PricingMatrix } from "./PricingMatrix";
+import {
+  buildVariantPayload,
+  defaultMetrics,
+  activeMetrics,
+  type PricingRow,
+  type VariantMetric,
+} from "@/lib/variants";
 
 interface AddProductProps {
   categories: { _id: string; label?: string; name?: string }[];
-}
-
-interface PricingRow {
-  diameter: string;
-  length: string;
-  material: string;
-  size: string;
-  price: number;
-}
-
-function TagEditor({
-  label,
-  placeholder,
-  values,
-  onChange,
-}: {
-  label: string;
-  placeholder: string;
-  values: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const [input, setInput] = useState("");
-  const add = () => {
-    const v = input.trim();
-    if (v && !values.includes(v)) onChange([...values, v]);
-    setInput("");
-  };
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-xs font-semibold text-slate-600">{label}</p>
-      <div className="flex flex-wrap gap-1 empty:hidden">
-        {values.map((v) => (
-          <span
-            key={v}
-            className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200 rounded-lg text-[11px] font-medium"
-          >
-            {v}
-            <button
-              type="button"
-              onClick={() => onChange(values.filter((x) => x !== v))}
-              className="hover:text-red-500 transition-colors"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-1">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          placeholder={placeholder}
-          className="min-w-0 flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-400 transition-colors"
-        />
-        <button
-          type="button"
-          onClick={add}
-          className="px-2 bg-slate-900 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
 }
 
 export function AddProduct({ categories }: AddProductProps) {
@@ -93,7 +37,7 @@ export function AddProduct({ categories }: AddProductProps) {
     bestSeller: false,
     onSale: false,
     isVariantProduct: false,
-    variantOptions: { diameters: [] as string[], lengths: [] as string[], materials: [] as string[], sizes: [] as string[] },
+    variantMetrics: defaultMetrics() as VariantMetric[],
     pricingData: [] as PricingRow[],
   });
 
@@ -136,40 +80,38 @@ export function AddProduct({ categories }: AddProductProps) {
     }
   };
 
-  const setVO = (key: string, vals: string[]) =>
-    setForm((p) => ({ ...p, variantOptions: { ...p.variantOptions, [key]: vals } }));
-
-  const addRow = () =>
-    setForm((p) => ({
-      ...p,
-      pricingData: [...p.pricingData, { diameter: "", length: "", material: "", size: "", price: 0 }],
-    }));
-
-  const updateRow = (idx: number, field: keyof PricingRow, value: string | number) => {
-    const rows = [...form.pricingData];
-    (rows[idx] as any)[field] = value;
-    setForm((p) => ({ ...p, pricingData: rows }));
+  const setMetrics = (metrics: VariantMetric[]) => {
+    setForm((p) => {
+      // Drop cells whose metric no longer has that value (renamed/removed).
+      const valid = new Map(metrics.map((m) => [m.key, new Set(m.values)]));
+      const pricingData = p.pricingData.map((row) => {
+        const values: Record<string, string> = {};
+        for (const [k, v] of Object.entries(row.values)) {
+          if (valid.get(k)?.has(v)) values[k] = v;
+        }
+        return { ...row, values };
+      });
+      return { ...p, variantMetrics: metrics, pricingData };
+    });
   };
 
-  const removeRow = (idx: number) =>
-    setForm((p) => ({ ...p, pricingData: p.pricingData.filter((_, i) => i !== idx) }));
-
-  const addImage = () => {
-    if (imageUrl.trim()) {
-      setForm((p) => ({ ...p, images: [...p.images, imageUrl.trim()] }));
-      setImageUrl("");
-    }
-  };
+  const setRows = (pricingData: PricingRow[]) =>
+    setForm((p) => ({ ...p, pricingData }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.categoryId) return alert("Please fill Name and Category.");
     setSaving(true);
     try {
+      const { variantMetrics, pricingData, ...rest } = form;
+      // Persist the new metric shape plus a legacy mirror for older storefronts.
+      const payload = form.isVariantProduct
+        ? { ...rest, ...buildVariantPayload(variantMetrics, pricingData) }
+        : { ...rest, variantMetrics: [], pricingData: [] };
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.ok) {
@@ -189,8 +131,7 @@ export function AddProduct({ categories }: AddProductProps) {
     }
   };
 
-  const { diameters, lengths, materials, sizes } = form.variantOptions;
-  const noOptions = !diameters.length && !lengths.length && !materials.length && !sizes.length;
+  const noOptions = activeMetrics(form.variantMetrics).length === 0;
 
   return (
     <>
@@ -435,94 +376,16 @@ export function AddProduct({ categories }: AddProductProps) {
 
                   {form.isVariantProduct ? (
                     <>
-                      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                        <TagEditor label="Diameters (DIA)" placeholder="e.g. 6" values={diameters} onChange={(v) => setVO("diameters", v)} />
-                        <TagEditor label="Lengths (LEN)" placeholder="e.g. 10" values={lengths} onChange={(v) => setVO("lengths", v)} />
-                        <TagEditor label="Material Grades" placeholder="e.g. 304" values={materials} onChange={(v) => setVO("materials", v)} />
-                        <TagEditor label="Sizes (optional)" placeholder="e.g. M6" values={sizes} onChange={(v) => setVO("sizes", v)} />
-                      </div>
+                      <MetricEditor
+                        metrics={form.variantMetrics}
+                        onChange={setMetrics}
+                      />
 
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-semibold text-slate-600">Pricing Matrix</span>
-                          <button
-                            type="button"
-                            onClick={addRow}
-                            disabled={noOptions}
-                            className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-xl hover:bg-blue-600 flex items-center gap-1 transition-all shadow-sm disabled:opacity-30"
-                          >
-                            <Plus className="h-3 w-3" /> Add Row
-                          </button>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                          <div className="overflow-x-auto max-h-[300px]">
-                            <table className="w-full text-left text-sm">
-                              <thead className="bg-slate-50 border-b border-slate-100">
-                                <tr>
-                                  {diameters.length > 0 && <th className="px-2 py-2 text-xs font-semibold text-slate-500">DIA</th>}
-                                  {lengths.length > 0   && <th className="px-2 py-2 text-xs font-semibold text-slate-500">Length</th>}
-                                  {materials.length > 0 && <th className="px-2 py-2 text-xs font-semibold text-slate-500">Grade</th>}
-                                  {sizes.length > 0     && <th className="px-2 py-2 text-xs font-semibold text-slate-500">Size</th>}
-                                  <th className="px-2 py-2 text-xs font-semibold text-slate-500 text-right">Price ₹</th>
-                                  <th className="px-2 py-2 w-8"></th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-50">
-                                {form.pricingData.map((row, idx) => (
-                                  <tr key={idx}>
-                                    {diameters.length > 0 && <td className="px-2 py-1.5">
-                                      <select value={row.diameter} onChange={(e) => updateRow(idx, "diameter", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-xs font-medium outline-none">
-                                        <option value="">—</option>
-                                        {diameters.map((d) => <option key={d}>{d}</option>)}
-                                      </select>
-                                    </td>}
-                                    {lengths.length > 0 && <td className="px-2 py-1.5">
-                                      <select value={row.length} onChange={(e) => updateRow(idx, "length", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-xs font-medium outline-none">
-                                        <option value="">—</option>
-                                        {lengths.map((l) => <option key={l}>{l}</option>)}
-                                      </select>
-                                    </td>}
-                                    {materials.length > 0 && <td className="px-2 py-1.5">
-                                      <select value={row.material} onChange={(e) => updateRow(idx, "material", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-xs font-medium outline-none">
-                                        <option value="">—</option>
-                                        {materials.map((m) => <option key={m}>{m}</option>)}
-                                      </select>
-                                    </td>}
-                                    {sizes.length > 0 && <td className="px-2 py-1.5">
-                                      <select value={row.size} onChange={(e) => updateRow(idx, "size", e.target.value)} className="w-full p-1 bg-slate-50 border border-slate-200 rounded text-xs font-medium outline-none">
-                                        <option value="">—</option>
-                                        {sizes.map((s) => <option key={s}>{s}</option>)}
-                                      </select>
-                                    </td>}
-                                    <td className="px-2 py-1.5">
-                                      <input
-                                        type="number"
-                                        value={row.price}
-                                        onChange={(e) => updateRow(idx, "price", Number(e.target.value))}
-                                        className="w-full p-1 text-right font-semibold border border-slate-200 rounded bg-slate-50 outline-none focus:bg-white text-xs"
-                                      />
-                                    </td>
-                                    <td className="px-2 py-1.5 text-center">
-                                      <button type="button" onClick={() => removeRow(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {form.pricingData.length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400">
-                                      {noOptions
-                                        ? "Add Diameters / Lengths / Grades above first"
-                                        : "Click Add Row to start building your pricing matrix"}
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
+                      <PricingMatrix
+                        metrics={form.variantMetrics}
+                        rows={form.pricingData}
+                        onChange={setRows}
+                      />
                     </>
                   ) : (
                     <div className="p-8 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-2">

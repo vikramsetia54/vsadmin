@@ -6,18 +6,18 @@ import { useRouter } from "next/navigation";
 import {
   Edit3, Trash2,
   CheckCircle2, XCircle, Save, X, Plus,
-  Layers, Box, Settings2, Info, Ruler, Upload, Link, Loader2,
+  Layers, Box, Info, Ruler, Upload, Link, Loader2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
-
-interface PricingRow {
-  _id?: string;
-  diameter?: string;
-  length?: string;
-  material?: string;
-  size?: string;
-  price: number;
-}
+import { MetricEditor } from "./MetricEditor";
+import { PricingMatrix } from "./PricingMatrix";
+import {
+  buildVariantPayload,
+  normalizeMetrics,
+  normalizeRows,
+  type PricingRow,
+  type VariantMetric,
+} from "@/lib/variants";
 
 interface VariantOptions {
   diameters: string[];
@@ -41,7 +41,8 @@ interface ProductRowProps {
     unit?: string;
     isVariantProduct?: boolean;
     variantOptions?: VariantOptions;
-    pricingData?: PricingRow[];
+    variantMetrics?: VariantMetric[];
+    pricingData?: Array<Record<string, unknown>>;
   };
 }
 
@@ -54,63 +55,6 @@ function Badge({ active, label, activeColor }: { active: boolean; label: string;
     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset bg-slate-50 text-slate-400 ring-slate-200">
       <XCircle className="h-2.5 w-2.5" /> {label}
     </span>
-  );
-}
-
-function TagEditor({
-  label,
-  values,
-  onChange,
-}: {
-  label: string;
-  values: string[];
-  onChange: (vals: string[]) => void;
-}) {
-  const [input, setInput] = useState("");
-
-  const add = () => {
-    const v = input.trim();
-    if (v && !values.includes(v)) onChange([...values, v]);
-    setInput("");
-  };
-
-  return (
-    <div>
-      <p className="text-[11px] font-semibold text-slate-500 mb-2">{label}</p>
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        {values.map((v) => (
-          <span
-            key={v}
-            className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200 rounded-lg text-[11px] font-medium"
-          >
-            {v}
-            <button
-              type="button"
-              onClick={() => onChange(values.filter((x) => x !== v))}
-              className="text-blue-400 hover:text-red-500"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-1">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          placeholder="Type then Enter or +"
-          className="flex-1 p-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:bg-white focus:border-blue-400"
-        />
-        <button
-          type="button"
-          onClick={add}
-          className="px-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -129,6 +73,10 @@ export function ProductRow({ product }: ProductRowProps) {
   const [uploadingCount, setUploadingCount] = useState(0);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Canonical metrics for the saved product (used by the read-only view and
+  // as the starting point when editing). Legacy docs are upgraded here.
+  const productMetrics = normalizeMetrics(product);
+
   const [edit, setEdit] = useState({
     name: product.name || "",
     price: product.price || 0,
@@ -140,8 +88,9 @@ export function ProductRow({ product }: ProductRowProps) {
     inStock: product.inStock ?? true,
     images: product.images ?? [],
     isVariantProduct: product.isVariantProduct ?? false,
-    variantOptions: product.variantOptions ?? { diameters: [], lengths: [], materials: [], sizes: [] },
-    pricingData: product.pricingData ?? [],
+    // Legacy documents are upgraded to the metric shape on open.
+    variantMetrics: productMetrics,
+    pricingData: normalizeRows(product, productMetrics),
   });
 
   const uploadFiles = async (files: FileList | File[]) => {
@@ -190,23 +139,22 @@ export function ProductRow({ product }: ProductRowProps) {
     setIsEditing(false);
   };
 
-  const setVO = (key: keyof VariantOptions, vals: string[]) =>
-    setEdit((prev) => ({ ...prev, variantOptions: { ...prev.variantOptions, [key]: vals } }));
+  const setMetrics = (metrics: VariantMetric[]) =>
+    setEdit((prev) => {
+      // Drop cells whose metric no longer offers that value.
+      const valid = new Map(metrics.map((m) => [m.key, new Set(m.values)]));
+      const pricingData = prev.pricingData.map((row) => {
+        const values: Record<string, string> = {};
+        for (const [k, v] of Object.entries(row.values)) {
+          if (valid.get(k)?.has(v)) values[k] = v;
+        }
+        return { ...row, values };
+      });
+      return { ...prev, variantMetrics: metrics, pricingData };
+    });
 
-  const addPriceRow = () =>
-    setEdit((prev) => ({
-      ...prev,
-      pricingData: [...prev.pricingData, { diameter: "", length: "", material: "", size: "", price: 0 }],
-    }));
-
-  const updateRow = (idx: number, field: keyof PricingRow, value: string | number) => {
-    const rows = [...edit.pricingData];
-    (rows[idx] as any)[field] = value;
-    setEdit((prev) => ({ ...prev, pricingData: rows }));
-  };
-
-  const removeRow = (idx: number) =>
-    setEdit((prev) => ({ ...prev, pricingData: prev.pricingData.filter((_, i) => i !== idx) }));
+  const setRows = (pricingData: PricingRow[]) =>
+    setEdit((prev) => ({ ...prev, pricingData }));
 
   const handleToggleStock = async () => {
     const next = !inStock;
@@ -223,10 +171,15 @@ export function ProductRow({ product }: ProductRowProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const { variantMetrics, pricingData, ...rest } = edit;
+      // Persist the new metric shape plus a legacy mirror for older storefronts.
+      const payload = edit.isVariantProduct
+        ? { ...rest, ...buildVariantPayload(variantMetrics, pricingData) }
+        : { ...rest, variantMetrics: [], pricingData: [] };
       const res = await fetch(`/api/products/${product._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(edit),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.ok) {
@@ -251,16 +204,6 @@ export function ProductRow({ product }: ProductRowProps) {
     toast(`Product "${product.name}" deleted`, "success");
     startTransition(() => router.refresh());
   };
-
-  const useDia = edit.variantOptions.diameters.length > 0;
-  const useLen = edit.variantOptions.lengths.length > 0;
-  const useMat = edit.variantOptions.materials.length > 0;
-  const useSz  = edit.variantOptions.sizes.length > 0;
-
-  const rdDia = (product.variantOptions?.diameters.length ?? 0) > 0;
-  const rdLen = (product.variantOptions?.lengths.length ?? 0) > 0;
-  const rdMat = (product.variantOptions?.materials.length ?? 0) > 0;
-  const rdSz  = (product.variantOptions?.sizes.length ?? 0) > 0;
 
   return (
     <>
@@ -623,129 +566,18 @@ export function ProductRow({ product }: ProductRowProps) {
                   {(product.isVariantProduct || edit.isVariantProduct) ? (
                     <>
                       {isEditing && (
-                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-2 gap-5">
-                          <TagEditor label="Diameters (DIA, optional)" values={edit.variantOptions.diameters} onChange={(v) => setVO("diameters", v)} />
-                          <TagEditor label="Lengths (LEN)" values={edit.variantOptions.lengths} onChange={(v) => setVO("lengths", v)} />
-                          <TagEditor label="Material Grades" values={edit.variantOptions.materials} onChange={(v) => setVO("materials", v)} />
-                          <TagEditor label="Sizes (optional)" values={edit.variantOptions.sizes} onChange={(v) => setVO("sizes", v)} />
-                        </div>
+                        <MetricEditor
+                          metrics={edit.variantMetrics}
+                          onChange={setMetrics}
+                        />
                       )}
 
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                            <Settings2 className="h-3 w-3 text-slate-400" /> Pricing Matrix (DIA × LEN × Grade)
-                          </h4>
-                          {isEditing && (
-                            <button
-                              type="button"
-                              onClick={addPriceRow}
-                              className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-xl hover:bg-blue-600 flex items-center gap-1 transition-all shadow-sm"
-                            >
-                              <Plus className="h-3 w-3" /> Add Row
-                            </button>
-                          )}
-                        </div>
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                              <thead className="bg-slate-50 border-b border-slate-100">
-                                <tr>
-                                  {(isEditing ? useDia : rdDia) && <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">DIA</th>}
-                                  {(isEditing ? useLen : rdLen) && <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Length</th>}
-                                  {(isEditing ? useMat : rdMat) && <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Grade</th>}
-                                  {(isEditing ? useSz  : rdSz)  && <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Size</th>}
-                                  <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 text-right">Price ₹</th>
-                                  {isEditing && <th className="px-4 py-2.5 w-8"></th>}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-50">
-                                {(isEditing ? edit.pricingData : (product.pricingData ?? [])).map((row, idx) =>
-                                  isEditing ? (
-                                    <tr key={idx} className="hover:bg-slate-50/50">
-                                      {useDia && <td className="px-3 py-2">
-                                        <select
-                                          value={row.diameter || ""}
-                                          onChange={(e) => updateRow(idx, "diameter", e.target.value)}
-                                          className="w-full p-1 bg-slate-50 border border-slate-200 rounded outline-none text-xs font-medium"
-                                        >
-                                          <option value="">—</option>
-                                          {edit.variantOptions.diameters.map((d) => <option key={d}>{d}</option>)}
-                                        </select>
-                                      </td>}
-                                      {useLen && <td className="px-3 py-2">
-                                        <select
-                                          value={row.length || ""}
-                                          onChange={(e) => updateRow(idx, "length", e.target.value)}
-                                          className="w-full p-1 bg-slate-50 border border-slate-200 rounded outline-none text-xs font-medium"
-                                        >
-                                          <option value="">—</option>
-                                          {edit.variantOptions.lengths.map((l) => <option key={l}>{l}</option>)}
-                                        </select>
-                                      </td>}
-                                      {useMat && <td className="px-3 py-2">
-                                        <select
-                                          value={row.material || ""}
-                                          onChange={(e) => updateRow(idx, "material", e.target.value)}
-                                          className="w-full p-1 bg-slate-50 border border-slate-200 rounded outline-none text-xs font-medium"
-                                        >
-                                          <option value="">—</option>
-                                          {edit.variantOptions.materials.map((m) => <option key={m}>{m}</option>)}
-                                        </select>
-                                      </td>}
-                                      {useSz && <td className="px-3 py-2">
-                                        <select
-                                          value={row.size || ""}
-                                          onChange={(e) => updateRow(idx, "size", e.target.value)}
-                                          className="w-full p-1 bg-slate-50 border border-slate-200 rounded outline-none text-xs font-medium"
-                                        >
-                                          <option value="">—</option>
-                                          {edit.variantOptions.sizes.map((s) => <option key={s}>{s}</option>)}
-                                        </select>
-                                      </td>}
-                                      <td className="px-3 py-2">
-                                        <input
-                                          type="number"
-                                          value={row.price}
-                                          onChange={(e) => updateRow(idx, "price", Number(e.target.value))}
-                                          className="w-full p-1 text-right font-semibold border border-slate-200 rounded bg-slate-50 outline-none focus:bg-white text-xs"
-                                        />
-                                      </td>
-                                      <td className="px-3 py-2 text-center">
-                                        <button
-                                          onClick={() => removeRow(idx)}
-                                          className="text-slate-300 hover:text-red-500 transition-colors"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  ) : (
-                                    <tr key={idx} className="hover:bg-slate-50/40">
-                                      {rdDia && <td className="px-4 py-2.5 font-semibold text-slate-700 text-sm">{row.diameter || "—"}</td>}
-                                      {rdLen && <td className="px-4 py-2.5 text-slate-600 text-sm">{row.length || "—"}</td>}
-                                      {rdMat && <td className="px-4 py-2.5">
-                                        {row.material
-                                          ? <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-medium text-[11px] ring-1 ring-inset ring-blue-200">AISI {row.material}</span>
-                                          : <span className="text-slate-300">—</span>}
-                                      </td>}
-                                      {rdSz  && <td className="px-4 py-2.5 text-slate-600 text-sm">{row.size || "—"}</td>}
-                                      <td className="px-4 py-2.5 text-right font-semibold text-slate-900 text-sm">₹{Number(row.price || 0).toLocaleString("en-IN")}</td>
-                                    </tr>
-                                  )
-                                )}
-                                {(isEditing ? edit.pricingData : (product.pricingData ?? [])).length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400">
-                                      No pricing rows yet. Click Add Row to start.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
+                      <PricingMatrix
+                        metrics={isEditing ? edit.variantMetrics : productMetrics}
+                        rows={isEditing ? edit.pricingData : normalizeRows(product, productMetrics)}
+                        onChange={setRows}
+                        readOnly={!isEditing}
+                      />
                     </>
                   ) : (
                     <div className="p-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-3">
