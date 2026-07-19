@@ -16,6 +16,7 @@ export function AddCategory() {
     label: "",
     name: "", // Usually the same as label, or slug
     description: "",
+    imageUrl: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +45,7 @@ export function AddCategory() {
       const data = await res.json();
       if (data.ok) {
         setIsOpen(false);
-        setFormData({ label: "", name: "", description: "" });
+        setFormData({ label: "", name: "", description: "", imageUrl: "" });
         toast(`Category "${formData.label}" created`, "success");
         startTransition(() => router.refresh());
       } else {
@@ -109,6 +110,17 @@ export function AddCategory() {
                   placeholder="Briefly describe what goes in this category..."
                   className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Background Image URL</label>
+                <input
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  placeholder="https://example.com/category-image.jpg"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+                <p className="text-xs text-slate-400 mt-1">Image shown on the categories listing page.</p>
               </div>
 
               <div className="pt-4 flex gap-3">

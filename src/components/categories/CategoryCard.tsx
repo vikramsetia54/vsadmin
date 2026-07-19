@@ -11,6 +11,7 @@ interface CategoryCardProps {
     label?: string;
     name?: string;
     description?: string;
+    imageUrl?: string;
     productCount?: number;
   };
 }
@@ -23,6 +24,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(category.label ?? category.name ?? "");
   const [description, setDescription] = useState(category.description ?? "");
+  const [imageUrl, setImageUrl] = useState(category.imageUrl ?? "");
   const [saving, setSaving] = useState(false);
 
   const handleDelete = async () => {
@@ -38,7 +40,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
     await fetch(`/api/categories/${category._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label, description }),
+      body: JSON.stringify({ label, description, imageUrl }),
     });
     setSaving(false);
     setEditing(false);
@@ -64,6 +66,12 @@ export function CategoryCard({ category }: CategoryCardProps) {
             rows={2}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all resize-none"
             placeholder="Description"
+          />
+          <input
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            placeholder="Background Image URL"
           />
           <div className="flex gap-2">
             <button
