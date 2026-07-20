@@ -299,10 +299,19 @@ export function ProductRow({ product }: ProductRowProps) {
                     ? <img src={product.images[0]} className="h-full w-full object-cover" alt="" />
                     : <Box className="h-4 w-4 text-slate-300" />}
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 leading-tight">{isEditing ? edit.name : product.name}</h3>
+                <div className="min-w-0">
+                  {isEditing ? (
+                    <input
+                      value={edit.name}
+                      onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                      className="font-bold text-slate-900 leading-tight text-sm w-full border border-slate-200 rounded-lg px-2 py-1 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 bg-white"
+                      placeholder="Product name"
+                    />
+                  ) : (
+                    <h3 className="font-bold text-slate-900 leading-tight">{product.name}</h3>
+                  )}
                   {product.isVariantProduct && (
-                    <span className="text-[11px] text-blue-600 font-medium flex items-center gap-1">
+                    <span className="text-[11px] text-blue-600 font-medium flex items-center gap-1 mt-0.5">
                       <Layers className="h-2.5 w-2.5" /> Variable pricing
                     </span>
                   )}
