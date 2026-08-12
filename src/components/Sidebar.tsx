@@ -9,6 +9,7 @@ import {
   Tags,
   FileText,
   MessageSquare,
+  Settings,
 } from "lucide-react";
 
 const routes = [
@@ -18,6 +19,7 @@ const routes = [
   { label: "Categories",   icon: Tags,            href: "/categories" },
   { label: "Blogs",        icon: FileText,        href: "/blogs" },
   { label: "Testimonials", icon: MessageSquare,   href: "/testimonials" },
+  { label: "Settings",     icon: Settings,        href: "/settings" },
 ];
 
 export default function Sidebar() {
