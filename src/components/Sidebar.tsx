@@ -9,6 +9,7 @@ import {
   Tags,
   FileText,
   MessageSquare,
+  Building2,
   Settings,
 } from "lucide-react";
 
@@ -19,6 +20,7 @@ const routes = [
   { label: "Categories",   icon: Tags,            href: "/categories" },
   { label: "Blogs",        icon: FileText,        href: "/blogs" },
   { label: "Testimonials", icon: MessageSquare,   href: "/testimonials" },
+  { label: "Vendors",      icon: Building2,       href: "/vendors" },
   { label: "Settings",     icon: Settings,        href: "/settings" },
 ];
 
