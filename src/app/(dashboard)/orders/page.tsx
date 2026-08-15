@@ -2,16 +2,59 @@ import { Search } from "lucide-react";
 import connectToDB from "@/lib/mongoose";
 import { Order } from "@/models/Order";
 import { Product } from "@/models/Product";
+import Vendor from "@/models/Vendor";
 import { OrderRow } from "@/components/orders/OrderRow";
+
+const normalize = (s: unknown) =>
+  String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Find the vendor whose `product` best matches an ordered item's name. */
+function matchVendor(itemName: string, vendors: any[]) {
+  const target = normalize(itemName);
+  if (!target) return null;
+
+  const exact = vendors.find((v) => normalize(v.product) === target);
+  if (exact) return exact;
+
+  // Fall back to containment either way, so "Hex Bolt" matches "Hex Bolt M6 x 30".
+  return (
+    vendors.find((v) => {
+      const p = normalize(v.product);
+      return p.length > 2 && (target.includes(p) || p.includes(target));
+    }) ?? null
+  );
+}
 
 export default async function OrdersPage() {
   await connectToDB();
   Product.init();
-  const rawOrders = await Order.find()
-    .populate({ path: "items.product", model: Product, strictPopulate: false })
-    .sort({ createdAt: -1 })
-    .lean() as any[];
+  const [rawOrders, rawVendors] = await Promise.all([
+    Order.find()
+      .populate({ path: "items.product", model: Product, strictPopulate: false })
+      .sort({ createdAt: -1 })
+      .lean() as Promise<any[]>,
+    Vendor.find().lean() as Promise<any[]>,
+  ]);
   const orders = JSON.parse(JSON.stringify(rawOrders));
+  const vendors = JSON.parse(JSON.stringify(rawVendors));
+
+  /** Attach the matching vendor (if any) to each item in an order. */
+  const withVendors = (items: any[]) =>
+    (items ?? []).map((item) => {
+      const vendor = matchVendor(item?.name ?? item?.product?.name, vendors);
+      return {
+        ...item,
+        vendor: vendor
+          ? {
+              _id: vendor._id.toString(),
+              name: vendor.name,
+              phone: vendor.phone,
+              email: vendor.email,
+              pricePaid: vendor.pricePaid,
+            }
+          : null,
+      };
+    });
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,7 +115,7 @@ export default async function OrdersPage() {
                       invoicePdf: order.shippingAddress?.invoicePdf || order.invoicePdf,
                       paymentMethod: order.paymentMethod,
                       paymentStatus: order.paymentStatus,
-                      items: order.items ? JSON.parse(JSON.stringify(order.items)) : [],
+                      items: withVendors(order.items),
                     }}
                   />
                 ))

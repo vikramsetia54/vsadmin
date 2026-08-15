@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Trash2, ChevronDown, ChevronUp, Package, Upload, FileText, Loader2, Check, X } from "lucide-react";
+import { Trash2, ChevronDown, ChevronUp, Package, Upload, FileText, Loader2, Check, X, Building2, Phone, Mail } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
 function StatusPopup({
@@ -94,11 +94,20 @@ const statusColors: Record<string, string> = {
   Pending:    "bg-amber-50 text-amber-700 ring-amber-200",
 };
 
+interface ItemVendor {
+  _id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  pricePaid?: number;
+}
+
 interface OrderItem {
   name?: string;
   price?: number;
   quantity?: number;
   images?: string[];
+  vendor?: ItemVendor | null;
 }
 
 interface ShippingAddress {
@@ -334,24 +343,50 @@ export function OrderRow({ order }: OrderRowProps) {
                         return (
                           <div
                             key={i}
-                            className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl p-3"
+                            className="bg-slate-50 border border-slate-100 rounded-xl p-3"
                           >
-                            <div className="h-10 w-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
-                              {photoUrl ? (
-                                <img src={photoUrl} alt={item.name} className="h-full w-full object-cover" />
-                              ) : (
-                                <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-300">
-                                  IMG
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex-shrink-0">
+                                {photoUrl ? (
+                                  <img src={photoUrl} alt={item.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-300">
+                                    IMG
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-800 truncate">{item.name ?? "—"}</p>
+                                <p className="text-xs text-slate-500">Qty: {item.quantity ?? 1}</p>
+                              </div>
+                              <p className="text-sm font-semibold text-slate-900 flex-shrink-0">
+                                ₹{Number((item.price ?? 0) * (item.quantity ?? 1)).toLocaleString("en-IN")}
+                              </p>
+                            </div>
+
+                            {/* Supplying vendor, when this product is sourced from one */}
+                            {item.vendor && (
+                              <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 ring-1 ring-inset ring-amber-200 rounded-lg px-2 py-0.5">
+                                  <Building2 className="h-3 w-3" /> {item.vendor.name}
                                 </span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-800 truncate">{item.name ?? "—"}</p>
-                              <p className="text-xs text-slate-500">Qty: {item.quantity ?? 1}</p>
-                            </div>
-                            <p className="text-sm font-semibold text-slate-900 flex-shrink-0">
-                              ₹{Number((item.price ?? 0) * (item.quantity ?? 1)).toLocaleString("en-IN")}
-                            </p>
+                                {item.vendor.phone && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                                    <Phone className="h-3 w-3 text-slate-400" /> {item.vendor.phone}
+                                  </span>
+                                )}
+                                {item.vendor.email && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 truncate">
+                                    <Mail className="h-3 w-3 text-slate-400" /> {item.vendor.email}
+                                  </span>
+                                )}
+                                {typeof item.vendor.pricePaid === "number" && item.vendor.pricePaid > 0 && (
+                                  <span className="text-xs text-slate-400 ml-auto">
+                                    Cost ₹{item.vendor.pricePaid.toLocaleString("en-IN")}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })
